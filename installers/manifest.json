@@ -1,0 +1,10 @@
+[
+  {
+    "file": "example.msi",
+    "args": ""
+  },
+  {
+    "file": "example.exe",
+    "args": "/S"
+  }
+]
