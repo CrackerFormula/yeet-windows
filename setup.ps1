@@ -1,5 +1,13 @@
-#requires -RunAsAdministrator
 $ErrorActionPreference = 'Stop'
+
+# Self-elevate if needed.
+$isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()
+).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+if (-not $isAdmin) {
+  $argsList = @('-NoProfile','-ExecutionPolicy','Bypass','-File',"`"$PSCommandPath`"")
+  Start-Process -FilePath 'powershell.exe' -ArgumentList $argsList -Verb RunAs
+  exit 0
+}
 
 $logDir = Join-Path $PSScriptRoot 'logs'
 New-Item -Path $logDir -ItemType Directory -Force | Out-Null
