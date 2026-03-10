@@ -95,6 +95,20 @@ foreach ($app in $appsToRemove) {
     }
 }
 
+# -- 5a. Bake setup.ps1 into image --------------------------------------------
+Write-Host ""
+Write-Host "[4b/7] Baking setup.ps1 into image..." -ForegroundColor Cyan
+$scriptsDir = "$MountDir\Windows\Setup\Scripts"
+$scriptSrc  = Split-Path -Parent $MyInvocation.MyCommand.Path
+New-Item -Path $scriptsDir -ItemType Directory -Force | Out-Null
+Copy-Item "$scriptSrc\setup.ps1"     "$scriptsDir\setup.ps1"    -Force
+Copy-Item "$scriptSrc\packages.json" "$scriptsDir\packages.json" -Force
+# SetupComplete.cmd runs automatically on first boot
+@"
+@echo off
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%WINDIR%\Setup\Scripts\setup.ps1"
+"@ | Set-Content "$scriptsDir\SetupComplete.cmd" -Encoding ASCII
+
 # -- 5. Registry tweaks via offline hive --------------------------------------
 Write-Host ""
 Write-Host "[5/6] Applying registry tweaks..." -ForegroundColor Cyan
