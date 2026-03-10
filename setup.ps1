@@ -242,6 +242,36 @@ try {
   Set-ItemProperty 'HKCU:\Software\Microsoft\Siuf\Rules' -Name NumberOfSIUFInPeriod -Type DWord -Value 0
   Set-ItemProperty 'HKCU:\Software\Microsoft\Siuf\Rules' -Name PeriodInNanoSeconds -Type QWord -Value 0
 
+  # ── Disable background app access globally ───────────────────────────────
+  Write-Host "`n[4b/5] Disabling background apps..." -ForegroundColor Cyan
+  # Global kill switch for background apps (user setting)
+  New-Item 'HKCU:\Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications' -Force | Out-Null
+  Set-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications' -Name GlobalUserDisabled -Type DWord -Value 1
+  # Also via search policy
+  New-Item 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Search' -Force | Out-Null
+  Set-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Search' -Name BackgroundAppGlobalToggle -Type DWord -Value 0
+  # Disable specific known background nuisances
+  @(
+    'Microsoft.YourPhone_8wekyb3d8bbwe'
+    'Microsoft.BingWeather_8wekyb3d8bbwe'
+    'Microsoft.BingNews_8wekyb3d8bbwe'
+    'Microsoft.GetHelp_8wekyb3d8bbwe'
+    'Microsoft.Getstarted_8wekyb3d8bbwe'
+    'Microsoft.MicrosoftOfficeHub_8wekyb3d8bbwe'
+    'Microsoft.Windows.Photos_8wekyb3d8bbwe'
+    'Microsoft.WindowsMaps_8wekyb3d8bbwe'
+    'MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy'
+  ) | ForEach-Object {
+    $path = "HKCU:\Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications\$_"
+    New-Item $path -Force | Out-Null
+    Set-ItemProperty $path -Name Disabled -Type DWord -Value 1
+    Set-ItemProperty $path -Name DisabledByUser -Type DWord -Value 1
+  }
+
+  # Disable startup delay for apps
+  New-Item 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize' -Force | Out-Null
+  Set-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize' -Name StartupDelayInMSec -Type DWord -Value 0
+
   # ── Disable telemetry tasks ───────────────────────────────────────────────
   Write-Host "`n[5/5] Disabling telemetry tasks..." -ForegroundColor Cyan
   @(
