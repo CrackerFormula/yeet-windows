@@ -121,8 +121,8 @@ try {
   New-Item 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsCopilot' -Force | Out-Null
   Set-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsCopilot' -Name TurnOffWindowsCopilot -Type DWord -Value 1
   # Hide Copilot taskbar button
-  New-Item 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced' -Force | Out-Null
-  Set-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced' -Name ShowCopilotButton -Type DWord -Value 0
+  if (-not (Test-Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced')) { New-Item 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced' -Force -ErrorAction SilentlyContinue | Out-Null }
+  Set-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced' -ErrorAction SilentlyContinue -Name ShowCopilotButton -Type DWord -Value 0
 
   # Remove Solitaire
   Write-Host "  Removing Solitaire..."
@@ -179,21 +179,21 @@ try {
   # Set Firefox as default browser + redirect Start menu web searches to Firefox
   Write-Host "  Setting Firefox as default browser..."
   # Force Start menu search to open results in default browser (not Edge)
-  New-Item 'HKCU:\Software\Policies\Microsoft\Windows\Explorer' -Force | Out-Null
-  Set-ItemProperty 'HKCU:\Software\Policies\Microsoft\Windows\Explorer' -Name DisableSearchBoxSuggestions -Type DWord -Value 1
+  if (-not (Test-Path 'HKCU:\Software\Policies\Microsoft\Windows\Explorer')) { New-Item 'HKCU:\Software\Policies\Microsoft\Windows\Explorer' -Force -ErrorAction SilentlyContinue | Out-Null }
+  Set-ItemProperty 'HKCU:\Software\Policies\Microsoft\Windows\Explorer' -ErrorAction SilentlyContinue -Name DisableSearchBoxSuggestions -Type DWord -Value 1
   New-Item 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search' -Force | Out-Null
   Set-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search' -Name DisableWebSearch -Type DWord -Value 1
   # Redirect Edge search protocol to Firefox
-  New-Item 'HKCU:\Software\Classes\MSEdgeHTM\shell\open\command' -Force | Out-Null
-  Set-ItemProperty 'HKCU:\Software\Classes\MSEdgeHTM\shell\open\command' -Name '(Default)' -Value '"C:\Program Files\Mozilla Firefox\firefox.exe" -osint -url "%1"'
+  if (-not (Test-Path 'HKCU:\Software\Classes\MSEdgeHTM\shell\open\command')) { New-Item 'HKCU:\Software\Classes\MSEdgeHTM\shell\open\command' -Force -ErrorAction SilentlyContinue | Out-Null }
+  Set-ItemProperty 'HKCU:\Software\Classes\MSEdgeHTM\shell\open\command' -ErrorAction SilentlyContinue -Name '(Default)' -Value '"C:\Program Files\Mozilla Firefox\firefox.exe" -osint -url "%1"'
   # Set Firefox as default via shell (user must confirm in Settings on first run - Windows 11 enforces this)
   Write-Host "  NOTE: Open Settings > Apps > Default Apps > Firefox to finalize browser default." -ForegroundColor Yellow
 
   # Disable widgets
   New-Item 'HKLM:\SOFTWARE\Policies\Microsoft\Dsh' -Force | Out-Null
   Set-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Dsh' -Name AllowNewsAndInterests -Type DWord -Value 0
-  New-Item 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced' -Force | Out-Null
-  Set-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced' -Name TaskbarDa -Type DWord -Value 0
+  if (-not (Test-Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced')) { New-Item 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced' -Force -ErrorAction SilentlyContinue | Out-Null }
+  Set-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced' -ErrorAction SilentlyContinue -Name TaskbarDa -Type DWord -Value 0
 
   # Remove + disable Cortana
   Write-Host "  Removing Cortana..."
@@ -230,27 +230,27 @@ try {
   # Disable Game Bar / DVR (keep Xbox app installed)
   New-Item 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\GameDVR' -Force | Out-Null
   Set-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\GameDVR' -Name AllowGameDVR -Type DWord -Value 0
-  New-Item 'HKCU:\Software\Microsoft\Windows\CurrentVersion\GameDVR' -Force | Out-Null
-  Set-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\GameDVR' -Name AppCaptureEnabled -Type DWord -Value 0
+  if (-not (Test-Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\GameDVR')) { New-Item 'HKCU:\Software\Microsoft\Windows\CurrentVersion\GameDVR' -Force -ErrorAction SilentlyContinue | Out-Null }
+  Set-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\GameDVR' -ErrorAction SilentlyContinue -Name AppCaptureEnabled -Type DWord -Value 0
 
   # Dark mode
-  New-Item 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize' -Force | Out-Null
-  Set-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize' -Name AppsUseLightTheme -Type DWord -Value 0
-  Set-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize' -Name SystemUsesLightTheme -Type DWord -Value 0
+  if (-not (Test-Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize')) { New-Item 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize' -Force -ErrorAction SilentlyContinue | Out-Null }
+  Set-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize' -ErrorAction SilentlyContinue -Name AppsUseLightTheme -Type DWord -Value 0
+  Set-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize' -ErrorAction SilentlyContinue -Name SystemUsesLightTheme -Type DWord -Value 0
 
   # Disable feedback
-  New-Item 'HKCU:\Software\Microsoft\Siuf\Rules' -Force | Out-Null
-  Set-ItemProperty 'HKCU:\Software\Microsoft\Siuf\Rules' -Name NumberOfSIUFInPeriod -Type DWord -Value 0
-  Set-ItemProperty 'HKCU:\Software\Microsoft\Siuf\Rules' -Name PeriodInNanoSeconds -Type QWord -Value 0
+  if (-not (Test-Path 'HKCU:\Software\Microsoft\Siuf\Rules')) { New-Item 'HKCU:\Software\Microsoft\Siuf\Rules' -Force -ErrorAction SilentlyContinue | Out-Null }
+  Set-ItemProperty 'HKCU:\Software\Microsoft\Siuf\Rules' -ErrorAction SilentlyContinue -Name NumberOfSIUFInPeriod -Type DWord -Value 0
+  Set-ItemProperty 'HKCU:\Software\Microsoft\Siuf\Rules' -ErrorAction SilentlyContinue -Name PeriodInNanoSeconds -Type QWord -Value 0
 
   # ---- Disable background app access globally --------------------------------------------------------------
   Write-Host "`n[4b/5] Disabling background apps..." -ForegroundColor Cyan
   # Global kill switch for background apps (user setting)
-  New-Item 'HKCU:\Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications' -Force | Out-Null
-  Set-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications' -Name GlobalUserDisabled -Type DWord -Value 1
+  if (-not (Test-Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications')) { New-Item 'HKCU:\Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications' -Force -ErrorAction SilentlyContinue | Out-Null }
+  Set-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications' -ErrorAction SilentlyContinue -Name GlobalUserDisabled -Type DWord -Value 1
   # Also via search policy
-  New-Item 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Search' -Force | Out-Null
-  Set-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Search' -Name BackgroundAppGlobalToggle -Type DWord -Value 0
+  if (-not (Test-Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Search')) { New-Item 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Search' -Force -ErrorAction SilentlyContinue | Out-Null }
+  Set-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Search' -ErrorAction SilentlyContinue -Name BackgroundAppGlobalToggle -Type DWord -Value 0
   # Disable specific known background nuisances
   @(
     'Microsoft.YourPhone_8wekyb3d8bbwe'
@@ -270,8 +270,8 @@ try {
   }
 
   # Disable startup delay for apps
-  New-Item 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize' -Force | Out-Null
-  Set-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize' -Name StartupDelayInMSec -Type DWord -Value 0
+  if (-not (Test-Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize')) { New-Item 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize' -Force -ErrorAction SilentlyContinue | Out-Null }
+  Set-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize' -ErrorAction SilentlyContinue -Name StartupDelayInMSec -Type DWord -Value 0
 
   # ---- Disable telemetry tasks ----------------------------------------------------------------------------------------------
   Write-Host "`n[5/5] Disabling telemetry tasks..." -ForegroundColor Cyan
