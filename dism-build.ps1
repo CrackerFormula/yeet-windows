@@ -76,10 +76,12 @@ $appsToRemove = @(
     'Microsoft.PowerAutomateDesktop'
 )
 
+$allPackages = dism /Image:$MountDir /Get-ProvisionedAppxPackages
+
 foreach ($app in $appsToRemove) {
-    $pkg = dism /Image:$MountDir /Get-ProvisionedAppxPackages | Select-String $app | Select-Object -First 1
-    if ($pkg) {
-        $pkgName = ($pkg -split ": ")[-1].Trim()
+    $pkgLine = $allPackages | Select-String "PackageName" | Where-Object { $_ -match [regex]::Escape($app) } | Select-Object -First 1
+    if ($pkgLine) {
+        $pkgName = ($pkgLine -split ": ", 2)[-1].Trim()
         Write-Host "  Removing $pkgName"
         dism /Image:$MountDir /Remove-ProvisionedAppxPackage /PackageName:$pkgName
     } else {
