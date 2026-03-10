@@ -150,6 +150,31 @@ try {
   # ── Registry tweaks ───────────────────────────────────────────────────────
   Write-Host "`n[4/5] Applying registry tweaks..." -ForegroundColor Cyan
 
+  # Suppress Edge (keep installed for WebView2, make it invisible)
+  Write-Host "  Suppressing Edge..."
+  # Disable Edge startup boost and background running
+  New-Item 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' -Force | Out-Null
+  Set-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' -Name StartupBoostEnabled -Type DWord -Value 0
+  Set-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' -Name BackgroundModeEnabled -Type DWord -Value 0
+  Set-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' -Name HideFirstRunExperience -Type DWord -Value 1
+  Set-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' -Name ShowHomeButton -Type DWord -Value 0
+  Set-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' -Name EdgeShoppingAssistantEnabled -Type DWord -Value 0
+  Set-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' -Name PersonalizationReportingEnabled -Type DWord -Value 0
+  Set-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' -Name EdgeCollectionsEnabled -Type DWord -Value 0
+  Set-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' -Name ShowMicrosoftRewards -Type DWord -Value 0
+  Set-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' -Name SpotlightExperiencesAndRecommendationsEnabled -Type DWord -Value 0
+  Set-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' -Name NewTabPageContentEnabled -Type DWord -Value 0
+  Set-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' -Name NewTabPageQuickLinksEnabled -Type DWord -Value 0
+  # Disable Edge autostart on login
+  Remove-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name 'MicrosoftEdgeAutoLaunch*' -ErrorAction SilentlyContinue
+  Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run' -ErrorAction SilentlyContinue | 
+    Select-Object -ExpandProperty PSObject.Properties | 
+    Where-Object { $_.Name -like '*Edge*' } | 
+    ForEach-Object { Remove-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run' -Name $_.Name -ErrorAction SilentlyContinue }
+  # Unpin Edge from taskbar
+  $edgeLnk = "$env:APPDATA\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar\Microsoft Edge.lnk"
+  if (Test-Path $edgeLnk) { Remove-Item $edgeLnk -Force -ErrorAction SilentlyContinue }
+
   # Set Firefox as default browser + redirect Start menu web searches to Firefox
   Write-Host "  Setting Firefox as default browser..."
   # Force Start menu search to open results in default browser (not Edge)
