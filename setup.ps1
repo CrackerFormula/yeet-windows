@@ -71,9 +71,13 @@ try {
   )
   foreach ($app in $appsToRemove) {
     Write-Host "  Removing: $app"
-    Get-AppxPackage -Name $app -AllUsers -ErrorAction SilentlyContinue | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue
-    Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue | Where-Object DisplayName -eq $app | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue | Out-Null
+    Get-AppxPackage -Name "*$app*" -AllUsers -ErrorAction SilentlyContinue | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue
+    Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -like "*$app*" } | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue | Out-Null
   }
+
+  # Widgets: also remove via winget as fallback
+  Write-Host "  Removing Widgets (winget fallback)..."
+  winget uninstall --name "Windows Web Experience Pack" --silent --accept-source-agreements 2>$null | Out-Null
 
   # Remove Teams Machine-Wide Installer
   $teamsUninstall = Get-ItemProperty -Path @(
