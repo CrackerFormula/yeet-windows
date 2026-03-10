@@ -179,9 +179,10 @@ $unattendContent = @'
 '@
 $pantherDir = "$MountDir\Windows\Panther"
 New-Item -Path $pantherDir -ItemType Directory -Force | Out-Null
-$unattendContent | Set-Content "$pantherDir\unattend.xml" -Encoding UTF8
+$utf8NoBom = New-Object System.Text.UTF8Encoding $false
+[System.IO.File]::WriteAllText("$pantherDir\unattend.xml", $unattendContent, $utf8NoBom)
 # Also save a copy next to the script for placing on USB root
-$unattendContent | Set-Content "$scriptSrc\autounattend.xml" -Encoding UTF8
+[System.IO.File]::WriteAllText("$scriptSrc\autounattend.xml", $unattendContent, $utf8NoBom)
 Write-Host "  autounattend.xml baked in. Also saved to $scriptSrc\autounattend.xml for Ventoy USB root."
 
 # -- 6. Bake setup.ps1 into image -----------------------------------------------
@@ -296,9 +297,10 @@ if (-not (Test-Path $oscdimg)) {
     Copy-Item $OutputWim "$IsoStaging\sources\install.wim"
 
     # Bake in setup.ps1, packages.json, and bloat.json
-    Copy-Item "$scriptSrc\setup.ps1"     "$IsoStaging\setup.ps1"
-    Copy-Item "$scriptSrc\packages.json" "$IsoStaging\packages.json"
-    Copy-Item "$scriptSrc\bloat.json"    "$IsoStaging\bloat.json"
+    Copy-Item "$scriptSrc\setup.ps1"        "$IsoStaging\setup.ps1"
+    Copy-Item "$scriptSrc\packages.json"    "$IsoStaging\packages.json"
+    Copy-Item "$scriptSrc\bloat.json"       "$IsoStaging\bloat.json"
+    Copy-Item "$scriptSrc\autounattend.xml" "$IsoStaging\autounattend.xml"
 
     Dismount-DiskImage -ImagePath $ISO -ErrorAction SilentlyContinue | Out-Null
 
