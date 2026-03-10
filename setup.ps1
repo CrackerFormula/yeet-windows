@@ -16,7 +16,7 @@ Start-Transcript -Path $logPath -Append | Out-Null
 
 try {
 
-  # ── Install apps via winget ───────────────────────────────────────────────
+  # ---- Install apps via winget ----------------------------------------------------------------------------------------------
   $packagesJson = Join-Path $PSScriptRoot 'packages.json'
   if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
     Write-Host "`n[1/5] winget not found — skipping app installs. Run setup.ps1 again after Windows Update completes." -ForegroundColor Yellow
@@ -27,7 +27,7 @@ try {
     Write-Host "`n[1/5] packages.json not found, skipping app install." -ForegroundColor Yellow
   }
 
-  # ── Install local packages from installers/manifest.json ─────────────────
+  # ---- Install local packages from installers/manifest.json ----------------------------------
   $installersDir = Join-Path $PSScriptRoot 'installers'
   $manifestPath  = Join-Path $installersDir 'manifest.json'
   if (Test-Path $manifestPath) {
@@ -48,7 +48,7 @@ try {
     }
   }
 
-  # ── Remove bloat ──────────────────────────────────────────────────────────
+  # ---- Remove bloat --------------------------------------------------------------------------------------------------------------------
   Write-Host "`n[3/5] Removing bloat..." -ForegroundColor Cyan
   $appsToRemove = @(
     'Microsoft.Windows.Ai.Copilot'
@@ -147,7 +147,7 @@ try {
   New-Item 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Chat' -Force | Out-Null
   Set-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Chat' -Name ChatIcon -Type DWord -Value 3
 
-  # ── Registry tweaks ───────────────────────────────────────────────────────
+  # ---- Registry tweaks --------------------------------------------------------------------------------------------------------------
   Write-Host "`n[4/5] Applying registry tweaks..." -ForegroundColor Cyan
 
   # Suppress Edge (keep installed for WebView2, make it invisible)
@@ -243,7 +243,7 @@ try {
   Set-ItemProperty 'HKCU:\Software\Microsoft\Siuf\Rules' -Name NumberOfSIUFInPeriod -Type DWord -Value 0
   Set-ItemProperty 'HKCU:\Software\Microsoft\Siuf\Rules' -Name PeriodInNanoSeconds -Type QWord -Value 0
 
-  # ── Disable background app access globally ───────────────────────────────
+  # ---- Disable background app access globally --------------------------------------------------------------
   Write-Host "`n[4b/5] Disabling background apps..." -ForegroundColor Cyan
   # Global kill switch for background apps (user setting)
   New-Item 'HKCU:\Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications' -Force | Out-Null
@@ -273,7 +273,7 @@ try {
   New-Item 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize' -Force | Out-Null
   Set-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize' -Name StartupDelayInMSec -Type DWord -Value 0
 
-  # ── Disable telemetry tasks ───────────────────────────────────────────────
+  # ---- Disable telemetry tasks ----------------------------------------------------------------------------------------------
   Write-Host "`n[5/5] Disabling telemetry tasks..." -ForegroundColor Cyan
   @(
     '\Microsoft\Windows\Application Experience\ProgramDataUpdater'
