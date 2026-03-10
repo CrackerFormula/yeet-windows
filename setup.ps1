@@ -97,10 +97,31 @@ try {
   foreach ($p in @("$env:SystemRoot\System32\OneDriveSetup.exe","$env:SystemRoot\SysWOW64\OneDriveSetup.exe")) {
     if (Test-Path $p) { Start-Process $p -ArgumentList '/uninstall' -Wait -WindowStyle Hidden }
   }
+  winget uninstall --name "Microsoft OneDrive" --silent --accept-source-agreements 2>$null | Out-Null
+  Get-AppxPackage -Name "*OneDrive*" -AllUsers -ErrorAction SilentlyContinue | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue
   New-Item 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\OneDrive' -Force | Out-Null
   Set-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\OneDrive' -Name DisableFileSyncNGSC -Type DWord -Value 1
+  Set-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\OneDrive' -Name PreventNetworkTrafficPreUserSignIn -Type DWord -Value 1
   Remove-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name OneDrive -ErrorAction SilentlyContinue
   Remove-ItemProperty 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Run' -Name OneDrive -ErrorAction SilentlyContinue
+
+  # Remove Copilot
+  Write-Host "  Removing Copilot..."
+  Get-AppxPackage -Name "*Microsoft.Windows.Ai.Copilot*" -AllUsers -ErrorAction SilentlyContinue | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue
+  Get-AppxPackage -Name "*Microsoft.Copilot*" -AllUsers -ErrorAction SilentlyContinue | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue
+  Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -like "*Copilot*" } | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue | Out-Null
+  winget uninstall --name "Copilot" --silent --accept-source-agreements 2>$null | Out-Null
+  New-Item 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsCopilot' -Force | Out-Null
+  Set-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsCopilot' -Name TurnOffWindowsCopilot -Type DWord -Value 1
+  # Hide Copilot taskbar button
+  New-Item 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced' -Force | Out-Null
+  Set-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced' -Name ShowCopilotButton -Type DWord -Value 0
+
+  # Remove Solitaire
+  Write-Host "  Removing Solitaire..."
+  Get-AppxPackage -Name "*MicrosoftSolitaireCollection*" -AllUsers -ErrorAction SilentlyContinue | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue
+  Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -like "*Solitaire*" } | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue | Out-Null
+  winget uninstall --name "Microsoft Solitaire Collection" --silent --accept-source-agreements 2>$null | Out-Null
 
   # ── Registry tweaks ───────────────────────────────────────────────────────
   Write-Host "`n[4/5] Applying registry tweaks..." -ForegroundColor Cyan
