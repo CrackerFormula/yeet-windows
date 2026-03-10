@@ -70,11 +70,9 @@ try {
     'MicrosoftWindows.Client.WebExperience'
     'Microsoft.SkypeApp'
     'Microsoft.Microsoft3DViewer'
-    'Microsoft.MSPaint'
+    'Microsoft.MSPaint3D'
     'MicrosoftCorporationII.QuickAssist'
     'Microsoft.PowerAutomateDesktop'
-    'MicrosoftTeams'
-    'MSTeams'
   )
   foreach ($app in $appsToRemove) {
     Write-Host "  Removing: $app"
@@ -167,9 +165,8 @@ try {
   Set-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' -Name NewTabPageQuickLinksEnabled -Type DWord -Value 0
   # Disable Edge autostart on login
   Remove-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name 'MicrosoftEdgeAutoLaunch*' -ErrorAction SilentlyContinue
-  Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run' -ErrorAction SilentlyContinue | 
-    Select-Object -ExpandProperty PSObject.Properties | 
-    Where-Object { $_.Name -like '*Edge*' } | 
+  (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run' -ErrorAction SilentlyContinue).PSObject.Properties |
+    Where-Object { $_.Name -like '*Edge*' } |
     ForEach-Object { Remove-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run' -Name $_.Name -ErrorAction SilentlyContinue }
   # Unpin Edge from taskbar
   $edgeLnk = "$env:APPDATA\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar\Microsoft Edge.lnk"
