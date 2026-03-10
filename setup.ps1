@@ -68,6 +68,13 @@ try {
     'Microsoft.ZuneMusic'
     'Microsoft.ZuneVideo'
     'MicrosoftWindows.Client.WebExperience'
+    'Microsoft.SkypeApp'
+    'Microsoft.Microsoft3DViewer'
+    'Microsoft.MSPaint'
+    'MicrosoftCorporationII.QuickAssist'
+    'Microsoft.PowerAutomateDesktop'
+    'MicrosoftTeams'
+    'MSTeams'
   )
   foreach ($app in $appsToRemove) {
     Write-Host "  Removing: $app"
@@ -122,6 +129,23 @@ try {
   Get-AppxPackage -Name "*MicrosoftSolitaireCollection*" -AllUsers -ErrorAction SilentlyContinue | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue
   Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -like "*Solitaire*" } | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue | Out-Null
   winget uninstall --name "Microsoft Solitaire Collection" --silent --accept-source-agreements 2>$null | Out-Null
+
+  # Remove remaining bloat via winget fallback
+  @(
+    'Skype'
+    'Microsoft 3D Viewer'
+    'Paint 3D'
+    'Quick Assist'
+    'Power Automate'
+    'Microsoft Teams'
+  ) | ForEach-Object {
+    Write-Host "  Removing (winget): $_"
+    winget uninstall --name $_ --silent --accept-source-agreements 2>$null | Out-Null
+  }
+
+  # Remove Teams Chat taskbar integration
+  New-Item 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Chat' -Force | Out-Null
+  Set-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Chat' -Name ChatIcon -Type DWord -Value 3
 
   # ── Registry tweaks ───────────────────────────────────────────────────────
   Write-Host "`n[4/5] Applying registry tweaks..." -ForegroundColor Cyan
