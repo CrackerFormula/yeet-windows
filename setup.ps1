@@ -19,7 +19,7 @@ try {
   # ---- Install apps via winget ----------------------------------------------------------------------------------------------
   $packagesJson = Join-Path $PSScriptRoot 'packages.json'
   if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
-    Write-Host "`n[1/5] winget not found — skipping app installs. Run setup.ps1 again after Windows Update completes." -ForegroundColor Yellow
+    Write-Host "`n[1/5] winget not found - skipping app installs. Run setup.ps1 again after Windows Update completes." -ForegroundColor Yellow
   } elseif (Test-Path $packagesJson) {
     Write-Host "`n[1/5] Installing apps from packages.json..." -ForegroundColor Cyan
     winget import -i $packagesJson --accept-source-agreements --accept-package-agreements --ignore-unavailable --ignore-versions
@@ -186,7 +186,7 @@ try {
   # Redirect Edge search protocol to Firefox
   New-Item 'HKCU:\Software\Classes\MSEdgeHTM\shell\open\command' -Force | Out-Null
   Set-ItemProperty 'HKCU:\Software\Classes\MSEdgeHTM\shell\open\command' -Name '(Default)' -Value '"C:\Program Files\Mozilla Firefox\firefox.exe" -osint -url "%1"'
-  # Set Firefox as default via shell (user must confirm in Settings on first run — Windows 11 enforces this)
+  # Set Firefox as default via shell (user must confirm in Settings on first run - Windows 11 enforces this)
   Write-Host "  NOTE: Open Settings > Apps > Default Apps > Firefox to finalize browser default." -ForegroundColor Yellow
 
   # Disable widgets
