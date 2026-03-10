@@ -18,11 +18,13 @@ try {
 
   # ── Install apps via winget ───────────────────────────────────────────────
   $packagesJson = Join-Path $PSScriptRoot 'packages.json'
-  if (Test-Path $packagesJson) {
+  if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+    Write-Host "`n[1/5] winget not found — skipping app installs. Run setup.ps1 again after Windows Update completes." -ForegroundColor Yellow
+  } elseif (Test-Path $packagesJson) {
     Write-Host "`n[1/5] Installing apps from packages.json..." -ForegroundColor Cyan
     winget import -i $packagesJson --accept-source-agreements --accept-package-agreements --ignore-unavailable --ignore-versions
   } else {
-    Write-Host "packages.json not found, skipping app install." -ForegroundColor Yellow
+    Write-Host "`n[1/5] packages.json not found, skipping app install." -ForegroundColor Yellow
   }
 
   # ── Install local packages from installers/manifest.json ─────────────────
