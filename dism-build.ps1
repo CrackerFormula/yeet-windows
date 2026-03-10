@@ -8,6 +8,12 @@ $WimFile    = "$WimDir\install.wim"
 $DriversDir = "C:\Users\Bear\Desktop\drivers"
 $OutputWim  = "$WimDir\install_clean.wim"
 
+# -- 0. Cleanup from previous run --------------------------------------------
+Write-Host "[0/6] Cleaning up previous run..." -ForegroundColor Cyan
+dism /Unmount-Image /MountDir:$MountDir /Discard 2>$null | Out-Null
+if (Test-Path $MountDir) { Remove-Item $MountDir -Recurse -Force -ErrorAction SilentlyContinue }
+if (Test-Path $WimDir)   { Remove-Item $WimDir   -Recurse -Force -ErrorAction SilentlyContinue }
+
 # -- 1. Mount ISO and extract install file ------------------------------------
 Write-Host "[1/6] Mounting ISO..." -ForegroundColor Cyan
 $mount = Mount-DiskImage -ImagePath $ISO -PassThru
