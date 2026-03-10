@@ -5,11 +5,13 @@ $ErrorActionPreference = 'Continue'
 # ---- Change the password immediately after first boot, or modify the XML below.
 
 param(
-    [string]$ISO        = "$env:USERPROFILE\Desktop\WindowsMain.iso",
-    [string]$DriversDir = "$env:USERPROFILE\Desktop\drivers",
+    [string]$ISO        = "",
+    [string]$DriversDir = "",
     [string]$MountDir   = "C:\WinMount",
     [string]$WimDir     = "C:\WimWork"
 )
+if (-not $ISO)        { $ISO        = "$env:USERPROFILE\Desktop\WindowsMain.iso" }
+if (-not $DriversDir) { $DriversDir = "$env:USERPROFILE\Desktop\drivers" }
 
 $WimFile    = "$WimDir\install.wim"
 $OutputWim  = "$WimDir\install_clean.wim"
