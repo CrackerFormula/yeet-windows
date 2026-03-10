@@ -134,13 +134,53 @@ reg unload HKLM\OfflineHive | Out-Null
 
 # -- 6. Commit and export clean WIM -------------------------------------------
 Write-Host ""
-Write-Host "[6/6] Committing and exporting clean WIM..." -ForegroundColor Cyan
+Write-Host "[6/7] Committing and exporting clean WIM..." -ForegroundColor Cyan
 dism /Unmount-Image /MountDir:$MountDir /Commit
 dism /Export-Image /SourceImageFile:$WimFile /SourceIndex:1 /DestinationImageFile:$OutputWim /Compress:max
 
+# -- 7. Build bootable ISO with scripts baked in ------------------------------
 Write-Host ""
-Write-Host "Done! Clean WIM: $OutputWim" -ForegroundColor Green
-Write-Host "Use Rufus to create bootable USB with this WIM." -ForegroundColor Green
-Write-Host "Copy setup.ps1 and packages.json to the USB root for post-install." -ForegroundColor Green
+Write-Host "[7/7] Building ISO..." -ForegroundColor Cyan
+
+$IsoStaging = "C:\WimWork\iso-staging"
+$OutputISO  = "C:\Users\Bear\Desktop\WindowsClean.iso"
+$oscdimg    = "C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Deployment Tools\amd64\Oscdimg\oscdimg.exe"
+
+if (-not (Test-Path $oscdimg)) {
+    Write-Host "oscdimg not found -- Windows ADK not installed." -ForegroundColor Yellow
+    Write-Host "Install ADK from: https://go.microsoft.com/fwlink/?linkid=2243390" -ForegroundColor Yellow
+    Write-Host "Then rerun this script. Clean WIM is ready at: $OutputWim" -ForegroundColor Green
+} else {
+    # Copy original ISO contents to staging
+    Write-Host "  Copying ISO boot files to staging..."
+    $isoMount = Mount-DiskImage -ImagePath $ISO -PassThru
+    $isoDrive = ($isoMount | Get-Volume).DriveLetter + ":"
+    New-Item -Path $IsoStaging -ItemType Directory -Force | Out-Null
+    Copy-Item "$isoDrive\*" $IsoStaging -Recurse -Force
+
+    # Replace install file with our clean WIM
+    Remove-Item "$IsoStaging\sources\install.esd" -ErrorAction SilentlyContinue
+    Remove-Item "$IsoStaging\sources\install.wim" -ErrorAction SilentlyContinue
+    Copy-Item $OutputWim "$IsoStaging\sources\install.wim"
+
+    # Bake in setup.ps1 and packages.json
+    $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+    Copy-Item "$scriptDir\setup.ps1"    "$IsoStaging\setup.ps1"
+    Copy-Item "$scriptDir\packages.json" "$IsoStaging\packages.json"
+
+    Dismount-DiskImage -ImagePath $ISO -ErrorAction SilentlyContinue | Out-Null
+
+    # Build ISO
+    Write-Host "  Building ISO (this may take a few minutes)..."
+    $efiBoot  = "$IsoStaging\efi\microsoft\boot\efisys.bin"
+    $etfsBoot = "$IsoStaging\boot\etfsboot.com"
+    & $oscdimg -m -o -u2 -udfver102 `
+        -bootdata:"2#p0,e,b$etfsBoot#pEF,e,b$efiBoot" `
+        $IsoStaging $OutputISO
+
+    Write-Host ""
+    Write-Host "Done! ISO ready: $OutputISO" -ForegroundColor Green
+    Write-Host "Drop it on Ventoy and boot -- setup.ps1 and packages.json are in the root." -ForegroundColor Green
+}
 
 Dismount-DiskImage -ImagePath $ISO -ErrorAction SilentlyContinue | Out-Null
