@@ -150,6 +150,19 @@ try {
   # ── Registry tweaks ───────────────────────────────────────────────────────
   Write-Host "`n[4/5] Applying registry tweaks..." -ForegroundColor Cyan
 
+  # Set Firefox as default browser + redirect Start menu web searches to Firefox
+  Write-Host "  Setting Firefox as default browser..."
+  # Force Start menu search to open results in default browser (not Edge)
+  New-Item 'HKCU:\Software\Policies\Microsoft\Windows\Explorer' -Force | Out-Null
+  Set-ItemProperty 'HKCU:\Software\Policies\Microsoft\Windows\Explorer' -Name DisableSearchBoxSuggestions -Type DWord -Value 1
+  New-Item 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search' -Force | Out-Null
+  Set-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search' -Name DisableWebSearch -Type DWord -Value 1
+  # Redirect Edge search protocol to Firefox
+  New-Item 'HKCU:\Software\Classes\MSEdgeHTM\shell\open\command' -Force | Out-Null
+  Set-ItemProperty 'HKCU:\Software\Classes\MSEdgeHTM\shell\open\command' -Name '(Default)' -Value '"C:\Program Files\Mozilla Firefox\firefox.exe" -osint -url "%1"'
+  # Set Firefox as default via shell (user must confirm in Settings on first run — Windows 11 enforces this)
+  Write-Host "  NOTE: Open Settings > Apps > Default Apps > Firefox to finalize browser default." -ForegroundColor Yellow
+
   # Disable widgets
   New-Item 'HKLM:\SOFTWARE\Policies\Microsoft\Dsh' -Force | Out-Null
   Set-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Dsh' -Name AllowNewsAndInterests -Type DWord -Value 0
