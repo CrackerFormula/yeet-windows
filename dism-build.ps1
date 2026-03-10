@@ -7,6 +7,7 @@ $WimDir     = "C:\WimWork"
 $WimFile    = "$WimDir\install.wim"
 $DriversDir = "C:\Users\Bear\Desktop\drivers"
 $OutputWim  = "$WimDir\install_clean.wim"
+$scriptSrc  = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 # -- 0. Cleanup from previous run --------------------------------------------
 Write-Host "[0/6] Cleaning up previous run..." -ForegroundColor Cyan
@@ -95,11 +96,84 @@ foreach ($app in $appsToRemove) {
     }
 }
 
+# -- 4c. Generate and bake autounattend.xml -----------------------------------
+Write-Host ""
+Write-Host "[4c/7] Baking autounattend.xml into image..." -ForegroundColor Cyan
+$unattendContent = @'
+<?xml version="1.0" encoding="utf-8"?>
+<unattend xmlns="urn:schemas-microsoft-com:unattend">
+  <settings pass="windowsPE">
+    <component name="Microsoft-Windows-International-Core-WinPE" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
+      <SetupUILanguage>
+        <UILanguage>en-US</UILanguage>
+      </SetupUILanguage>
+      <InputLocale>en-US</InputLocale>
+      <SystemLocale>en-US</SystemLocale>
+      <UILanguage>en-US</UILanguage>
+      <UserLocale>en-US</UserLocale>
+    </component>
+    <component name="Microsoft-Windows-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
+      <UserData>
+        <AcceptEula>true</AcceptEula>
+      </UserData>
+    </component>
+  </settings>
+  <settings pass="oobeSystem">
+    <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
+      <OOBE>
+        <HideEULAPage>true</HideEULAPage>
+        <HideOEMRegistrationScreen>true</HideOEMRegistrationScreen>
+        <HideOnlineAccountScreens>true</HideOnlineAccountScreens>
+        <HideWirelessSetupInOOBE>true</HideWirelessSetupInOOBE>
+        <NetworkLocation>Home</NetworkLocation>
+        <ProtectYourPC>3</ProtectYourPC>
+        <SkipMachineOOBE>true</SkipMachineOOBE>
+        <SkipUserOOBE>true</SkipUserOOBE>
+      </OOBE>
+      <UserAccounts>
+        <LocalAccounts>
+          <LocalAccount wcm:action="add">
+            <Password>
+              <Value></Value>
+              <PlainText>true</PlainText>
+            </Password>
+            <DisplayName>Bear</DisplayName>
+            <Group>Administrators</Group>
+            <Name>Bear</Name>
+          </LocalAccount>
+        </LocalAccounts>
+      </UserAccounts>
+      <AutoLogon>
+        <Password>
+          <Value></Value>
+          <PlainText>true</PlainText>
+        </Password>
+        <Enabled>true</Enabled>
+        <LogonCount>1</LogonCount>
+        <Username>Bear</Username>
+      </AutoLogon>
+      <TimeZone>Eastern Standard Time</TimeZone>
+    </component>
+    <component name="Microsoft-Windows-International-Core" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
+      <InputLocale>en-US</InputLocale>
+      <SystemLocale>en-US</SystemLocale>
+      <UILanguage>en-US</UILanguage>
+      <UserLocale>en-US</UserLocale>
+    </component>
+  </settings>
+</unattend>
+'@
+$pantherDir = "$MountDir\Windows\Panther"
+New-Item -Path $pantherDir -ItemType Directory -Force | Out-Null
+$unattendContent | Set-Content "$pantherDir\unattend.xml" -Encoding UTF8
+# Also save a copy next to the script for placing on USB root
+$unattendContent | Set-Content "$scriptSrc\autounattend.xml" -Encoding UTF8
+Write-Host "  autounattend.xml baked in. Also saved to $scriptSrc\autounattend.xml for Ventoy USB root."
+
 # -- 5a. Bake setup.ps1 into image --------------------------------------------
 Write-Host ""
 Write-Host "[4b/7] Baking setup.ps1 into image..." -ForegroundColor Cyan
 $scriptsDir = "$MountDir\Windows\Setup\Scripts"
-$scriptSrc  = Split-Path -Parent $MyInvocation.MyCommand.Path
 New-Item -Path $scriptsDir -ItemType Directory -Force | Out-Null
 Copy-Item "$scriptSrc\setup.ps1"     "$scriptsDir\setup.ps1"    -Force
 Copy-Item "$scriptSrc\packages.json" "$scriptsDir\packages.json" -Force
