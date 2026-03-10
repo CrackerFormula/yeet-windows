@@ -111,14 +111,33 @@ try {
   New-Item 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced' -Force | Out-Null
   Set-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced' -Name TaskbarDa -Type DWord -Value 0
 
-  # Disable Cortana
+  # Remove + disable Cortana
+  Write-Host "  Removing Cortana..."
+  Get-AppxPackage -Name "*Microsoft.549981C3F5F10*" -AllUsers -ErrorAction SilentlyContinue | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue
+  Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -like "*Cortana*" } | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue | Out-Null
+  winget uninstall --name "Cortana" --silent --accept-source-agreements 2>$null | Out-Null
   New-Item 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search' -Force | Out-Null
   Set-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search' -Name AllowCortana -Type DWord -Value 0
+  Set-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search' -Name AllowCortanaAboveLock -Type DWord -Value 0
+
+  # Remove feedback hub + disable telemetry
+  Write-Host "  Removing Feedback Hub..."
+  Get-AppxPackage -Name "*Microsoft.WindowsFeedbackHub*" -AllUsers -ErrorAction SilentlyContinue | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue
+  Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -like "*FeedbackHub*" } | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue | Out-Null
+  winget uninstall --name "Feedback Hub" --silent --accept-source-agreements 2>$null | Out-Null
 
   # Disable telemetry
+  Write-Host "  Disabling telemetry..."
   New-Item 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection' -Force | Out-Null
   Set-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection' -Name AllowTelemetry -Type DWord -Value 0
   Set-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection' -Name DoNotShowFeedbackNotifications -Type DWord -Value 1
+  Set-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection' -Name DisableOneSettingsDownloads -Type DWord -Value 1
+  Set-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection' -Name DisableTelemetryOptInChangeNotification -Type DWord -Value 1
+  # Kill DiagTrack service
+  Stop-Service -Name DiagTrack -Force -ErrorAction SilentlyContinue
+  Set-Service -Name DiagTrack -StartupType Disabled -ErrorAction SilentlyContinue
+  Stop-Service -Name dmwappushservice -Force -ErrorAction SilentlyContinue
+  Set-Service -Name dmwappushservice -StartupType Disabled -ErrorAction SilentlyContinue
 
   # Block bloat reinstall
   New-Item 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent' -Force | Out-Null
