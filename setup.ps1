@@ -34,14 +34,14 @@ try {
     foreach ($entry in $manifest) {
       $filePath = Join-Path $installersDir $entry.file
       if (-not (Test-Path $filePath)) { Write-Host "  Not found: $filePath"; continue }
-      $ext  = [IO.Path]::GetExtension($filePath).ToLowerInvariant()
-      $args = if ($entry.args) { $entry.args } else { @() }
+      $ext         = [IO.Path]::GetExtension($filePath).ToLowerInvariant()
+      $installArgs = if ($entry.args) { $entry.args } else { @() }
       if ($ext -eq '.msi') {
         Write-Host "  Installing MSI: $($entry.file)"
-        Start-Process msiexec.exe -ArgumentList "/i `"$filePath`" /qn /norestart $args" -Wait -NoNewWindow
+        Start-Process msiexec.exe -ArgumentList "/i `"$filePath`" /qn /norestart $installArgs" -Wait -NoNewWindow
       } elseif ($ext -eq '.exe') {
         Write-Host "  Installing EXE: $($entry.file)"
-        Start-Process $filePath -ArgumentList $args -Wait -NoNewWindow
+        Start-Process $filePath -ArgumentList $installArgs -Wait -NoNewWindow
       }
     }
   }
@@ -89,7 +89,7 @@ try {
     'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*',
     'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
   ) -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -like '*Teams Machine-Wide*' } | Select-Object -First 1
-  if ($teamsUninstall?.UninstallString) {
+  if ($teamsUninstall -and $teamsUninstall.UninstallString) {
     $cmd = $teamsUninstall.UninstallString.Trim('"')
     if ($cmd -match 'msiexec') {
       Start-Process msiexec.exe -ArgumentList (($cmd -replace '.*msiexec\.exe\s*','') + ' /qn /norestart') -Wait -NoNewWindow
@@ -164,7 +164,9 @@ try {
   Set-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' -Name NewTabPageContentEnabled -Type DWord -Value 0
   Set-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' -Name NewTabPageQuickLinksEnabled -Type DWord -Value 0
   # Disable Edge autostart on login
-  Remove-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name 'MicrosoftEdgeAutoLaunch*' -ErrorAction SilentlyContinue
+  (Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -ErrorAction SilentlyContinue).PSObject.Properties |
+    Where-Object { $_.Name -like 'MicrosoftEdgeAutoLaunch*' } |
+    ForEach-Object { Remove-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name $_.Name -ErrorAction SilentlyContinue }
   (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run' -ErrorAction SilentlyContinue).PSObject.Properties |
     Where-Object { $_.Name -like '*Edge*' } |
     ForEach-Object { Remove-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run' -Name $_.Name -ErrorAction SilentlyContinue }
