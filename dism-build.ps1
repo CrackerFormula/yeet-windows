@@ -62,6 +62,7 @@ $appsToRemove = @(
     'Microsoft.WindowsFeedbackHub'
     'Microsoft.ZuneMusic'
     'Microsoft.ZuneVideo'
+    'MicrosoftWindows.Client.WebExperience'
     'Microsoft.Xbox.TCUI'
     'Microsoft.XboxApp'
     'Microsoft.XboxGameOverlay'

@@ -67,6 +67,7 @@ try {
     'Microsoft.WindowsFeedbackHub'
     'Microsoft.ZuneMusic'
     'Microsoft.ZuneVideo'
+    'MicrosoftWindows.Client.WebExperience'
   )
   foreach ($app in $appsToRemove) {
     Write-Host "  Removing: $app"
