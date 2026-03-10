@@ -1,24 +1,56 @@
 #Requires -RunAsAdministrator
 $ErrorActionPreference = 'Continue'
 
-$ISO        = "C:\Users\Bear\Desktop\WindowsMain.iso"
-$MountDir   = "C:\WinMount"
-$WimDir     = "C:\WimWork"
+# ---- WARNING: autounattend.xml creates a local admin account with an EMPTY password.
+# ---- Change the password immediately after first boot, or modify the XML below.
+
+param(
+    [string]$ISO        = "$env:USERPROFILE\Desktop\WindowsMain.iso",
+    [string]$DriversDir = "$env:USERPROFILE\Desktop\drivers",
+    [string]$MountDir   = "C:\WinMount",
+    [string]$WimDir     = "C:\WimWork"
+)
+
 $WimFile    = "$WimDir\install.wim"
-$DriversDir = "C:\Users\Bear\Desktop\drivers"
 $OutputWim  = "$WimDir\install_clean.wim"
 $scriptSrc  = Split-Path -Parent $MyInvocation.MyCommand.Path
 
-# -- 0. Cleanup from previous run --------------------------------------------
-Write-Host "[0/6] Cleaning up previous run..." -ForegroundColor Cyan
+# ---- Load shared bloat list --------------------------------------------------
+$bloatJsonPath = Join-Path $scriptSrc 'bloat.json'
+if (Test-Path $bloatJsonPath) {
+  $appsToRemove = Get-Content -Path $bloatJsonPath -Raw | ConvertFrom-Json
+} else {
+  Write-Host "bloat.json not found, using built-in list." -ForegroundColor Yellow
+  $appsToRemove = @(
+    'Microsoft.Windows.Ai.Copilot','Microsoft.Windows.Copilot','MicrosoftTeams','MSTeams',
+    'Clipchamp.Clipchamp','Microsoft.MicrosoftSolitaireCollection','Microsoft.YourPhone',
+    'Microsoft.BingWeather','Microsoft.BingNews','Microsoft.WindowsMaps',
+    'Microsoft.MixedReality.Portal','Microsoft.People','microsoft.windowscommunicationsapps',
+    'Microsoft.MicrosoftOfficeHub','Microsoft.Getstarted','Microsoft.WindowsFeedbackHub',
+    'Microsoft.ZuneMusic','Microsoft.ZuneVideo','MicrosoftWindows.Client.WebExperience',
+    'Microsoft.SkypeApp','Microsoft.Microsoft3DViewer','Microsoft.MSPaint3D',
+    'MicrosoftCorporationII.QuickAssist','Microsoft.PowerAutomateDesktop'
+  )
+}
+
+try {
+
+# -- 0. Cleanup from previous run -----------------------------------------------
+Write-Host "[0/8] Cleaning up previous run..." -ForegroundColor Cyan
+reg unload HKLM\OfflineHive 2>$null | Out-Null
 dism /Unmount-Image /MountDir:$MountDir /Discard 2>$null | Out-Null
+Dismount-DiskImage -ImagePath $ISO -ErrorAction SilentlyContinue | Out-Null
 if (Test-Path $MountDir) { Remove-Item $MountDir -Recurse -Force -ErrorAction SilentlyContinue }
 if (Test-Path $WimDir)   { Remove-Item $WimDir   -Recurse -Force -ErrorAction SilentlyContinue }
 
-# -- 1. Mount ISO and extract install file ------------------------------------
-Write-Host "[1/6] Mounting ISO..." -ForegroundColor Cyan
+# -- 1. Mount ISO and extract install file ---------------------------------------
+Write-Host "[1/8] Mounting ISO..." -ForegroundColor Cyan
 $mount = Mount-DiskImage -ImagePath $ISO -PassThru
-$drive = ($mount | Get-Volume).DriveLetter + ":"
+$vol = $mount | Get-Volume
+if (-not $vol -or -not $vol.DriveLetter) {
+    throw "Failed to mount ISO or no drive letter assigned."
+}
+$drive = $vol.DriveLetter + ":"
 New-Item -Path $MountDir, $WimDir -ItemType Directory -Force | Out-Null
 
 $src = "$drive\sources\install.wim"
@@ -42,46 +74,28 @@ if (Test-Path $src) {
     throw "No install.wim or install.esd found in ISO at $drive\sources\"
 }
 
-# -- 2. Mount WIM -------------------------------------------------------------
+# Dismount ISO now (we have the WIM extracted); will remount later for ISO build.
+Dismount-DiskImage -ImagePath $ISO -ErrorAction SilentlyContinue | Out-Null
+
+# -- 2. Mount WIM ---------------------------------------------------------------
 Write-Host ""
-Write-Host "[2/6] Mounting WIM..." -ForegroundColor Cyan
+Write-Host "[2/8] Mounting WIM..." -ForegroundColor Cyan
 attrib -r $WimFile
 dism /Mount-Image /ImageFile:$WimFile /Index:$index /MountDir:$MountDir
 
-# -- 3. Integrate drivers -----------------------------------------------------
+# -- 3. Integrate drivers -------------------------------------------------------
 Write-Host ""
-Write-Host "[3/6] Integrating drivers from $DriversDir..." -ForegroundColor Cyan
-dism /Image:$MountDir /Add-Driver /Driver:$DriversDir /Recurse /ForceUnsigned
+Write-Host "[3/8] Integrating drivers..." -ForegroundColor Cyan
+if (Test-Path $DriversDir) {
+    dism /Image:$MountDir /Add-Driver /Driver:$DriversDir /Recurse /ForceUnsigned
+    if ($LASTEXITCODE -ne 0) { Write-Host "  WARNING: Driver integration failed (exit $LASTEXITCODE)" -ForegroundColor Yellow }
+} else {
+    Write-Host "  No drivers directory at $DriversDir -- skipping." -ForegroundColor Yellow
+}
 
-# -- 4. Remove bloat ----------------------------------------------------------
+# -- 4. Remove bloat -------------------------------------------------------------
 Write-Host ""
-Write-Host "[4/6] Removing bloat..." -ForegroundColor Cyan
-$appsToRemove = @(
-    'Microsoft.Windows.Ai.Copilot'
-    'Microsoft.Windows.Copilot'
-    'MicrosoftTeams'
-    'MSTeams'
-    'Clipchamp.Clipchamp'
-    'Microsoft.MicrosoftSolitaireCollection'
-    'Microsoft.YourPhone'
-    'Microsoft.BingWeather'
-    'Microsoft.BingNews'
-    'Microsoft.WindowsMaps'
-    'Microsoft.MixedReality.Portal'
-    'Microsoft.People'
-    'microsoft.windowscommunicationsapps'
-    'Microsoft.MicrosoftOfficeHub'
-    'Microsoft.Getstarted'
-    'Microsoft.WindowsFeedbackHub'
-    'Microsoft.ZuneMusic'
-    'Microsoft.ZuneVideo'
-    'MicrosoftWindows.Client.WebExperience'
-    'Microsoft.SkypeApp'
-    'Microsoft.Microsoft3DViewer'
-    'Microsoft.MSPaint3D'
-    'MicrosoftCorporationII.QuickAssist'
-    'Microsoft.PowerAutomateDesktop'
-)
+Write-Host "[4/8] Removing bloat..." -ForegroundColor Cyan
 
 $allPackages = dism /Image:$MountDir /Get-ProvisionedAppxPackages
 
@@ -96,9 +110,9 @@ foreach ($app in $appsToRemove) {
     }
 }
 
-# -- 4c. Generate and bake autounattend.xml -----------------------------------
+# -- 5. Bake autounattend.xml into image ----------------------------------------
 Write-Host ""
-Write-Host "[4c/7] Baking autounattend.xml into image..." -ForegroundColor Cyan
+Write-Host "[5/8] Baking autounattend.xml into image..." -ForegroundColor Cyan
 $unattendContent = @'
 <?xml version="1.0" encoding="utf-8"?>
 <unattend xmlns="urn:schemas-microsoft-com:unattend">
@@ -170,22 +184,34 @@ $unattendContent | Set-Content "$pantherDir\unattend.xml" -Encoding UTF8
 $unattendContent | Set-Content "$scriptSrc\autounattend.xml" -Encoding UTF8
 Write-Host "  autounattend.xml baked in. Also saved to $scriptSrc\autounattend.xml for Ventoy USB root."
 
-# -- 5a. Bake setup.ps1 into image --------------------------------------------
+# -- 6. Bake setup.ps1 into image -----------------------------------------------
 Write-Host ""
-Write-Host "[4b/7] Baking setup.ps1 into image..." -ForegroundColor Cyan
+Write-Host "[6/8] Baking setup.ps1 into image..." -ForegroundColor Cyan
 $scriptsDir = "$MountDir\Windows\Setup\Scripts"
 New-Item -Path $scriptsDir -ItemType Directory -Force | Out-Null
 Copy-Item "$scriptSrc\setup.ps1"     "$scriptsDir\setup.ps1"    -Force
 Copy-Item "$scriptSrc\packages.json" "$scriptsDir\packages.json" -Force
+Copy-Item "$scriptSrc\bloat.json"    "$scriptsDir\bloat.json"    -Force
+# Copy installers directory if it exists and has real files
+$installersDir = Join-Path $scriptSrc 'installers'
+if (Test-Path $installersDir) {
+    $realInstallers = Get-ChildItem $installersDir -Include '*.msi','*.exe' -Recurse -ErrorAction SilentlyContinue
+    if ($realInstallers) {
+        $destInstallers = "$scriptsDir\installers"
+        New-Item -Path $destInstallers -ItemType Directory -Force | Out-Null
+        Copy-Item "$installersDir\*" $destInstallers -Recurse -Force
+        Write-Host "  Copied installers directory into image."
+    }
+}
 # SetupComplete.cmd runs automatically on first boot
 @"
 @echo off
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%WINDIR%\Setup\Scripts\setup.ps1"
 "@ | Set-Content "$scriptsDir\SetupComplete.cmd" -Encoding ASCII
 
-# -- 5. Registry tweaks via offline hive --------------------------------------
+# -- 7. Registry tweaks via offline hive -----------------------------------------
 Write-Host ""
-Write-Host "[5/6] Applying registry tweaks..." -ForegroundColor Cyan
+Write-Host "[7/8] Applying registry tweaks..." -ForegroundColor Cyan
 $software = "$MountDir\Windows\System32\config\SOFTWARE"
 
 reg load HKLM\OfflineHive $software | Out-Null
@@ -218,20 +244,34 @@ reg add "HKLM\OfflineHive\Policies\Microsoft\Dsh" /v AllowNewsAndInterests /t RE
 # Disable Copilot
 reg add "HKLM\OfflineHive\Policies\Microsoft\Windows\WindowsCopilot" /v TurnOffWindowsCopilot /t REG_DWORD /d 1 /f | Out-Null
 
-reg unload HKLM\OfflineHive | Out-Null
+# Unload hive with retry (handles locked handles from AV/indexer)
+[GC]::Collect()
+[GC]::WaitForPendingFinalizers()
+$retries = 0
+do {
+    reg unload HKLM\OfflineHive 2>$null
+    if ($LASTEXITCODE -eq 0) { break }
+    $retries++
+    Write-Host "  Hive busy, retrying ($retries/5)..." -ForegroundColor Yellow
+    Start-Sleep -Seconds 2
+    [GC]::Collect()
+} while ($retries -lt 5)
+if ($LASTEXITCODE -ne 0) {
+    throw "Failed to unload registry hive -- WIM commit would corrupt. Aborting."
+}
 
-# -- 6. Commit and export clean WIM -------------------------------------------
+# -- 8. Commit and export clean WIM + build ISO ---------------------------------
 Write-Host ""
-Write-Host "[6/7] Committing and exporting clean WIM..." -ForegroundColor Cyan
+Write-Host "[8/8] Committing and exporting clean WIM..." -ForegroundColor Cyan
 dism /Unmount-Image /MountDir:$MountDir /Commit
-dism /Export-Image /SourceImageFile:$WimFile /SourceIndex:1 /DestinationImageFile:$OutputWim /Compress:max
+dism /Export-Image /SourceImageFile:$WimFile /SourceIndex:$index /DestinationImageFile:$OutputWim /Compress:max
 
-# -- 7. Build bootable ISO with scripts baked in ------------------------------
+# Build bootable ISO with scripts baked in
 Write-Host ""
-Write-Host "[7/7] Building ISO..." -ForegroundColor Cyan
+Write-Host "Building ISO..." -ForegroundColor Cyan
 
 $IsoStaging = "C:\WimWork\iso-staging"
-$OutputISO  = "C:\Users\Bear\Desktop\WindowsClean.iso"
+$OutputISO  = "$env:USERPROFILE\Desktop\WindowsClean.iso"
 $oscdimg    = "C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Deployment Tools\amd64\Oscdimg\oscdimg.exe"
 
 if (-not (Test-Path $oscdimg)) {
@@ -239,10 +279,14 @@ if (-not (Test-Path $oscdimg)) {
     Write-Host "Install ADK from: https://go.microsoft.com/fwlink/?linkid=2243390" -ForegroundColor Yellow
     Write-Host "Then rerun this script. Clean WIM is ready at: $OutputWim" -ForegroundColor Green
 } else {
-    # Copy original ISO contents to staging
+    # Remount ISO to copy boot files
     Write-Host "  Copying ISO boot files to staging..."
     $isoMount = Mount-DiskImage -ImagePath $ISO -PassThru
-    $isoDrive = ($isoMount | Get-Volume).DriveLetter + ":"
+    $isoVol = $isoMount | Get-Volume
+    if (-not $isoVol -or -not $isoVol.DriveLetter) {
+        throw "Failed to remount ISO for staging."
+    }
+    $isoDrive = $isoVol.DriveLetter + ":"
     New-Item -Path $IsoStaging -ItemType Directory -Force | Out-Null
     Copy-Item "$isoDrive\*" $IsoStaging -Recurse -Force
 
@@ -251,10 +295,10 @@ if (-not (Test-Path $oscdimg)) {
     Remove-Item "$IsoStaging\sources\install.wim" -ErrorAction SilentlyContinue
     Copy-Item $OutputWim "$IsoStaging\sources\install.wim"
 
-    # Bake in setup.ps1 and packages.json
-    $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-    Copy-Item "$scriptDir\setup.ps1"    "$IsoStaging\setup.ps1"
-    Copy-Item "$scriptDir\packages.json" "$IsoStaging\packages.json"
+    # Bake in setup.ps1, packages.json, and bloat.json
+    Copy-Item "$scriptSrc\setup.ps1"     "$IsoStaging\setup.ps1"
+    Copy-Item "$scriptSrc\packages.json" "$IsoStaging\packages.json"
+    Copy-Item "$scriptSrc\bloat.json"    "$IsoStaging\bloat.json"
 
     Dismount-DiskImage -ImagePath $ISO -ErrorAction SilentlyContinue | Out-Null
 
@@ -271,4 +315,12 @@ if (-not (Test-Path $oscdimg)) {
     Write-Host "Drop it on Ventoy and boot -- setup.ps1 and packages.json are in the root." -ForegroundColor Green
 }
 
-Dismount-DiskImage -ImagePath $ISO -ErrorAction SilentlyContinue | Out-Null
+} catch {
+    Write-Host "ERROR: $_" -ForegroundColor Red
+    throw
+} finally {
+    # Guaranteed cleanup: unload hive, unmount WIM, dismount ISO
+    reg unload HKLM\OfflineHive 2>$null | Out-Null
+    dism /Unmount-Image /MountDir:$MountDir /Discard 2>$null | Out-Null
+    Dismount-DiskImage -ImagePath $ISO -ErrorAction SilentlyContinue | Out-Null
+}

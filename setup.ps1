@@ -1,10 +1,10 @@
 $ErrorActionPreference = 'Continue'
 
-# Self-elevate if needed.
+# Self-elevate if needed (forward any arguments).
 $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()
 ).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) {
-  $argsList = @('-NoProfile','-ExecutionPolicy','Bypass','-File',"`"$PSCommandPath`"")
+  $argsList = @('-NoProfile','-ExecutionPolicy','Bypass','-File',"`"$PSCommandPath`"") + $args
   Start-Process -FilePath 'powershell.exe' -ArgumentList $argsList -Verb RunAs
   exit 0
 }
@@ -16,13 +16,34 @@ Start-Transcript -Path $logPath -Append | Out-Null
 
 try {
 
-  # ---- Install apps via winget ----------------------------------------------------------------------------------------------
+  # ---- Load shared bloat list --------------------------------------------------
+  $bloatJson = Join-Path $PSScriptRoot 'bloat.json'
+  if (Test-Path $bloatJson) {
+    $appsToRemove = Get-Content -Path $bloatJson -Raw | ConvertFrom-Json
+  } else {
+    Write-Host "bloat.json not found, using built-in list." -ForegroundColor Yellow
+    $appsToRemove = @(
+      'Microsoft.Windows.Ai.Copilot','Microsoft.Windows.Copilot','MicrosoftTeams','MSTeams',
+      'Clipchamp.Clipchamp','Microsoft.MicrosoftSolitaireCollection','Microsoft.YourPhone',
+      'Microsoft.BingWeather','Microsoft.BingNews','Microsoft.WindowsMaps',
+      'Microsoft.MixedReality.Portal','Microsoft.People','microsoft.windowscommunicationsapps',
+      'Microsoft.MicrosoftOfficeHub','Microsoft.Getstarted','Microsoft.WindowsFeedbackHub',
+      'Microsoft.ZuneMusic','Microsoft.ZuneVideo','MicrosoftWindows.Client.WebExperience',
+      'Microsoft.SkypeApp','Microsoft.Microsoft3DViewer','Microsoft.MSPaint3D',
+      'MicrosoftCorporationII.QuickAssist','Microsoft.PowerAutomateDesktop'
+    )
+  }
+
+  # ---- Install apps via winget ---------------------------------------------------------------------------------
   $packagesJson = Join-Path $PSScriptRoot 'packages.json'
   if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
     Write-Host "`n[1/5] winget not found - skipping app installs. Run setup.ps1 again after Windows Update completes." -ForegroundColor Yellow
   } elseif (Test-Path $packagesJson) {
     Write-Host "`n[1/5] Installing apps from packages.json..." -ForegroundColor Cyan
     winget import -i $packagesJson --accept-source-agreements --accept-package-agreements --ignore-unavailable --ignore-versions
+    if ($LASTEXITCODE -ne 0) {
+      Write-Host "  WARNING: winget import exited with code $LASTEXITCODE" -ForegroundColor Yellow
+    }
   } else {
     Write-Host "`n[1/5] packages.json not found, skipping app install." -ForegroundColor Yellow
   }
@@ -37,7 +58,7 @@ try {
       $filePath = Join-Path $installersDir $entry.file
       if (-not (Test-Path $filePath)) { Write-Host "  Not found: $filePath"; continue }
       $ext         = [IO.Path]::GetExtension($filePath).ToLowerInvariant()
-      $installArgs = if ($entry.args) { $entry.args } else { @() }
+      $installArgs = if ($entry.args) { [string]$entry.args } else { '' }
       if ($ext -eq '.msi') {
         Write-Host "  Installing MSI: $($entry.file)"
         Start-Process msiexec.exe -ArgumentList "/i `"$filePath`" /qn /norestart $installArgs" -Wait -NoNewWindow
@@ -48,34 +69,8 @@ try {
     }
   }
 
-  # ---- Remove bloat --------------------------------------------------------------------------------------------------------------------
+  # ---- Remove bloat --------------------------------------------------------------------------------------------
   Write-Host "`n[3/5] Removing bloat..." -ForegroundColor Cyan
-  $appsToRemove = @(
-    'Microsoft.Windows.Ai.Copilot'
-    'Microsoft.Windows.Copilot'
-    'MicrosoftTeams'
-    'MSTeams'
-    'Clipchamp.Clipchamp'
-    'Microsoft.MicrosoftSolitaireCollection'
-    'Microsoft.YourPhone'
-    'Microsoft.BingWeather'
-    'Microsoft.BingNews'
-    'Microsoft.WindowsMaps'
-    'Microsoft.MixedReality.Portal'
-    'Microsoft.People'
-    'microsoft.windowscommunicationsapps'
-    'Microsoft.MicrosoftOfficeHub'
-    'Microsoft.Getstarted'
-    'Microsoft.WindowsFeedbackHub'
-    'Microsoft.ZuneMusic'
-    'Microsoft.ZuneVideo'
-    'MicrosoftWindows.Client.WebExperience'
-    'Microsoft.SkypeApp'
-    'Microsoft.Microsoft3DViewer'
-    'Microsoft.MSPaint3D'
-    'MicrosoftCorporationII.QuickAssist'
-    'Microsoft.PowerAutomateDesktop'
-  )
   foreach ($app in $appsToRemove) {
     Write-Host "  Removing: $app"
     Get-AppxPackage -Name "*$app*" -AllUsers -ErrorAction SilentlyContinue | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue
@@ -147,7 +142,7 @@ try {
   New-Item 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Chat' -Force -ErrorAction SilentlyContinue | Out-Null
   Set-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Chat' -Name ChatIcon -Type DWord -Value 3
 
-  # ---- Registry tweaks --------------------------------------------------------------------------------------------------------------
+  # ---- Registry tweaks -----------------------------------------------------------------------------------------
   Write-Host "`n[4/5] Applying registry tweaks..." -ForegroundColor Cyan
 
   # Suppress Edge (keep installed for WebView2, make it invisible)
@@ -183,9 +178,11 @@ try {
   Set-ItemProperty 'HKCU:\Software\Policies\Microsoft\Windows\Explorer' -ErrorAction SilentlyContinue -Name DisableSearchBoxSuggestions -Type DWord -Value 1
   New-Item 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search' -Force -ErrorAction SilentlyContinue | Out-Null
   Set-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search' -Name DisableWebSearch -Type DWord -Value 1
-  # Redirect Edge search protocol to Firefox
+  # Redirect Edge search protocol to Firefox (look up actual install path)
+  $ffPath = (Get-Command firefox -ErrorAction SilentlyContinue).Source
+  if (-not $ffPath) { $ffPath = "C:\Program Files\Mozilla Firefox\firefox.exe" }
   if (-not (Test-Path 'HKCU:\Software\Classes\MSEdgeHTM\shell\open\command')) { New-Item 'HKCU:\Software\Classes\MSEdgeHTM\shell\open\command' -Force -ErrorAction SilentlyContinue | Out-Null }
-  Set-ItemProperty 'HKCU:\Software\Classes\MSEdgeHTM\shell\open\command' -ErrorAction SilentlyContinue -Name '(Default)' -Value '"C:\Program Files\Mozilla Firefox\firefox.exe" -osint -url "%1"'
+  Set-ItemProperty 'HKCU:\Software\Classes\MSEdgeHTM\shell\open\command' -ErrorAction SilentlyContinue -Name '(Default)' -Value "`"$ffPath`" -osint -url `"%1`""
   # Set Firefox as default via shell (user must confirm in Settings on first run - Windows 11 enforces this)
   Write-Host "  NOTE: Open Settings > Apps > Default Apps > Firefox to finalize browser default." -ForegroundColor Yellow
 
@@ -243,8 +240,8 @@ try {
   Set-ItemProperty 'HKCU:\Software\Microsoft\Siuf\Rules' -ErrorAction SilentlyContinue -Name NumberOfSIUFInPeriod -Type DWord -Value 0
   Set-ItemProperty 'HKCU:\Software\Microsoft\Siuf\Rules' -ErrorAction SilentlyContinue -Name PeriodInNanoSeconds -Type QWord -Value 0
 
-  # ---- Disable background app access globally --------------------------------------------------------------
-  Write-Host "`n[4b/5] Disabling background apps..." -ForegroundColor Cyan
+  # ---- Disable background app access globally ------------------------------------------------------------------
+  Write-Host "`n[5/5] Disabling background apps and telemetry tasks..." -ForegroundColor Cyan
   # Global kill switch for background apps (user setting)
   if (-not (Test-Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications')) { New-Item 'HKCU:\Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications' -Force -ErrorAction SilentlyContinue | Out-Null }
   Set-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications' -ErrorAction SilentlyContinue -Name GlobalUserDisabled -Type DWord -Value 1
@@ -264,7 +261,7 @@ try {
     'MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy'
   ) | ForEach-Object {
     $path = "HKCU:\Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications\$_"
-    New-Item $path -Force | Out-Null
+    New-Item $path -Force -ErrorAction SilentlyContinue | Out-Null
     Set-ItemProperty $path -Name Disabled -Type DWord -Value 1
     Set-ItemProperty $path -Name DisabledByUser -Type DWord -Value 1
   }
@@ -273,8 +270,7 @@ try {
   if (-not (Test-Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize')) { New-Item 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize' -Force -ErrorAction SilentlyContinue | Out-Null }
   Set-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize' -ErrorAction SilentlyContinue -Name StartupDelayInMSec -Type DWord -Value 0
 
-  # ---- Disable telemetry tasks ----------------------------------------------------------------------------------------------
-  Write-Host "`n[5/5] Disabling telemetry tasks..." -ForegroundColor Cyan
+  # ---- Disable telemetry tasks ---------------------------------------------------------------------------------
   @(
     '\Microsoft\Windows\Application Experience\ProgramDataUpdater'
     '\Microsoft\Windows\Application Experience\StartupAppTask'

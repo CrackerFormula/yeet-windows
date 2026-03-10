@@ -1,0 +1,4 @@
+autounattend.xml
+logs/
+installers/*.msi
+installers/*.exe
