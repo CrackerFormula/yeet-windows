@@ -4,14 +4,10 @@ $ErrorActionPreference = 'Continue'
 # ---- WARNING: autounattend.xml creates a local admin account with an EMPTY password.
 # ---- Change the password immediately after first boot, or modify the XML below.
 
-param(
-    [string]$ISO        = "",
-    [string]$DriversDir = "",
-    [string]$MountDir   = "C:\WinMount",
-    [string]$WimDir     = "C:\WimWork"
-)
-if (-not $ISO)        { $ISO        = "$env:USERPROFILE\Desktop\WindowsMain.iso" }
-if (-not $DriversDir) { $DriversDir = "$env:USERPROFILE\Desktop\drivers" }
+$ISO        = "$env:USERPROFILE\Desktop\WindowsMain.iso"
+$DriversDir = "$env:USERPROFILE\Desktop\drivers"
+$MountDir   = "C:\WinMount"
+$WimDir     = "C:\WimWork"
 
 $WimFile    = "$WimDir\install.wim"
 $OutputWim  = "$WimDir\install_clean.wim"
